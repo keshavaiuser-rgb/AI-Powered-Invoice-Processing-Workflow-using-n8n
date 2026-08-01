@@ -1,0 +1,1491 @@
+{
+  "name": "Google Drive Invoice Processing",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        -432
+      ],
+      "id": "e9a490ec-7b0c-4faa-825a-f36b8b9602ad",
+      "name": "Extract from File",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an invoice extraction assistant.\n\nExtract the invoice information from the provided invoice text.\n\nReturn ONLY valid JSON.\nDo not include markdown, explanations, or extra text.\n\nRules:\n- If a field is missing, return an empty string (\"\") for text fields and 0 for numeric fields.\n- Extract all line items into the \"items\" array.\n- Return a confidence_score between 0 and 100 based on the quality of the extraction.\n\nConfidence Score Guidelines:\n- 95-100: All required fields are clearly present and extracted accurately.\n- 85-94: Minor uncertainty, but the extraction is likely correct.\n- 70-84: Some fields are unclear or partially missing.\n- Below 70: The invoice is unreadable, incomplete, or the extracted data is unreliable.\n\nReturn ONLY this JSON:\n\n{\n  \"invoice_number\": \"\",\n  \"vendor_name\": \"\",\n  \"invoice_date\": \"\",\n  \"total_amount\": 0,\n  \"tax_amount\": 0,\n  \"currency\": \"\",\n  \"confidence_score\": 0,\n  \"items\": [\n    {\n      \"description\": \"\",\n      \"quantity\": 0,\n      \"unit_price\": 0,\n      \"amount\": 0\n    }\n  ]\n}\n\nInvoice Text:\n{{ $json.sessionId }}",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1552,
+        -720
+      ],
+      "id": "3e445cc7-b25a-471d-8ebb-7d39686bee44",
+      "name": "AI Agent",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": "openrouter/free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1552,
+        -512
+      ],
+      "id": "89d15481-f8cb-40e1-9111-9c4b3a30d926",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "LgOUPsW6i4Tv1Jtx",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        1776,
+        -496
+      ],
+      "id": "d98514d7-8341-43b8-8f19-8635114e58aa",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eceec0b7-4e84-42d3-ad25-ac47e4958b00",
+              "name": "sessionId",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1184,
+        -656
+      ],
+      "id": "5c123d57-32c7-4dba-b428-38b2539a4721",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"invoice_number\": \"\",\n  \"vendor_name\": \"\",\n  \"invoice_date\": \"\",\n  \"total_amount\": 0,\n  \"tax_amount\": 0,\n  \"currency\": \"\",\n  \"confidence_score\": 0,\n  \"items\": [\n    {\n      \"description\": \"\",\n      \"quantity\": 0,\n      \"unit_price\": 0,\n      \"amount\": 0\n    }\n  ]\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2000,
+        -512
+      ],
+      "id": "4fc41046-0a9b-49e1-bed1-554319af463e",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1EQ3m_ZZ5_tW6TWcm5bx1ysV9Dona-KUTOGPbZxkVb3I",
+          "mode": "list",
+          "cachedResultName": " Invoices",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1EQ3m_ZZ5_tW6TWcm5bx1ysV9Dona-KUTOGPbZxkVb3I/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Vendor": "={{ $('AI Agent').item.json.output.vendor_name }}",
+            "Description": "={{ $('Split Out').item.json['output.items'].description }}",
+            "Qty": "={{ $('Split Out').item.json['output.items'].quantity }}",
+            "Unit Price": "={{ $('Split Out').item.json['output.items'].unit_price }}",
+            "Amount": "={{ $('Split Out').item.json['output.items'].amount }}",
+            "Total Amount": "={{ $('AI Agent').item.json.output.total_amount }}",
+            "Tax": "={{ $('AI Agent').item.json.output.tax_amount }}",
+            "Currency": "={{ $('AI Agent').item.json.output.currency }}",
+            "Date": "={{ $('AI Agent').item.json.output.invoice_date }}",
+            "Invoice No": "={{ $('AI Agent').item.json.output.invoice_number }}",
+            "Status": "={{ $json.Status }}",
+            "Confidence": "={{ $json['Confidence score'] }}",
+            "processing_timestamp": "={{ $json.processing_timestamp }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Invoice No",
+              "displayName": "Invoice No",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Vendor",
+              "displayName": "Vendor",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Currency",
+              "displayName": "Currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total Amount",
+              "displayName": "Total Amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Tax",
+              "displayName": "Tax",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Description",
+              "displayName": "Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qty",
+              "displayName": "Qty",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Unit Price",
+              "displayName": "Unit Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Amount",
+              "displayName": "Amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Confidence",
+              "displayName": "Confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "processing_timestamp",
+              "displayName": "processing_timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "useAppend": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4032,
+        -896
+      ],
+      "id": "30ba48f0-f934-4be7-918e-cb834012dcdc",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F6mtjCPLgV6eF7tg",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "output.items",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        3376,
+        -928
+      ],
+      "id": "fbd8afda-7eea-4ef5-95ad-14354c099787",
+      "name": "Split Out",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0012a1a0-b9dd-4c3d-8965-2749c16a9843",
+              "name": "=Status",
+              "value": "={{\n(\n  $json.output.invoice_number &&\n  $json.output.vendor_name &&\n  $json.output.total_amount > 0\n)\n? \"Processed\"\n: \"Needs Manual Review\"\n}}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2352,
+        -1184
+      ],
+      "id": "c40daf6a-665f-403a-83cb-ffa0dc3ad6ff",
+      "name": "status"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "80e56013-de43-4274-bccf-5e855228c20a",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "Processed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2496,
+        -1168
+      ],
+      "id": "13ed5101-beaa-4374-8cf4-49cb79487a3e",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "sendTo": "keshavaiuser@gmail.com",
+        "subject": "✅ Invoice Processed Successfully",
+        "emailType": "text",
+        "message": "=Hello,  A new invoice has been processed successfully. \n\n\nInvoice Number:{{ $('AI Agent').item.json.output.invoice_number }}\nVendor:{{ $('AI Agent').item.json.output.vendor_name }}\nTotal Amount:{{ $('AI Agent').item.json.output.total_amount }}\nCurrency: {{ $('AI Agent').item.json.output.currency }}\nStatus: Processed  \nRegards,\n\n\nAI Invoice Automation",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        4544,
+        -832
+      ],
+      "id": "5a17540c-22f0-4912-811b-cf9e5b1de7e9",
+      "name": "Send a message",
+      "webhookId": "c1071178-7363-42f7-bf9e-16d3a71600b7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "c8SP0bBGyzYZF3j2",
+          "name": "Gmail account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "sendTo": "keshavaiuser@gmail.com",
+        "subject": "⚠️ Invoice Requires Manual Review",
+        "emailType": "text",
+        "message": "=Hello,  An invoice could not be processed automatically.  Invoice Number: {{ $json.output.invoice_number }} Vendor: {{ $json.output.vendor_name }}  Reason: Some required information is missing.  Status: Needs Manual Review  Please review the invoice manually.  Regards, AI Invoice Automation",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        4512,
+        -368
+      ],
+      "id": "9bf8af1d-66ea-457a-a513-117dbdb2b550",
+      "name": "Send a message1",
+      "webhookId": "1b23c8a5-36b7-4ca1-b418-be4a8ea2981f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "c8SP0bBGyzYZF3j2",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "output.items",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        3536,
+        -688
+      ],
+      "id": "aa221911-44be-411c-bf98-97cbf3396843",
+      "name": "Split Out1",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1EQ3m_ZZ5_tW6TWcm5bx1ysV9Dona-KUTOGPbZxkVb3I",
+          "mode": "list",
+          "cachedResultName": " Invoices",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1EQ3m_ZZ5_tW6TWcm5bx1ysV9Dona-KUTOGPbZxkVb3I/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Vendor": "={{ $json.output.vendor_name }}",
+            "Description": "={{ $json['output.items'].description }}",
+            "Qty": "={{ $json['output.items'].quantity }}",
+            "Unit Price": "={{ $json['output.items'].unit_price }}",
+            "Amount": "={{ $json['output.items'].amount }}",
+            "Total Amount": "={{ $json.output.total_amount }}",
+            "Tax": "={{ $json.output.tax_amount }}",
+            "Currency": "={{ $json.output.currency }}",
+            "Date": "={{ $json.output.invoice_date }}",
+            "Invoice No": "={{ $json.output.invoice_number }}",
+            "Status": "={{ $('status').item.json.Status }}",
+            "Confidence": "={{ $json.output.confidence_score }}",
+            "processing_timestamp": "={{ $json.processing_timestamp }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Invoice No",
+              "displayName": "Invoice No",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Vendor",
+              "displayName": "Vendor",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Currency",
+              "displayName": "Currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total Amount",
+              "displayName": "Total Amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Tax",
+              "displayName": "Tax",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Description",
+              "displayName": "Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qty",
+              "displayName": "Qty",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Unit Price",
+              "displayName": "Unit Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Amount",
+              "displayName": "Amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Confidence",
+              "displayName": "Confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "processing_timestamp",
+              "displayName": "processing_timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "useAppend": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3856,
+        -288
+      ],
+      "id": "daf13d70-44a6-4a9b-915c-d7aa541220f5",
+      "name": "Append row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F6mtjCPLgV6eF7tg",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d669ea75-9cd8-4ebf-9848-a994ef4d54ee",
+              "name": "status",
+              "value": " Processing Failed",
+              "type": "string"
+            },
+            {
+              "id": "84aeeae9-2ace-4740-9039-219869fd2bf2",
+              "name": "",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4736,
+        528
+      ],
+      "id": "1459e7c1-4cb3-4827-8211-49f8ca41e1f0",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "sendTo": "keshavaiuser@gmail.com",
+        "subject": " Invoice Processing Failed",
+        "emailType": "text",
+        "message": "=Status: {{ $json.status }}\nError: {{ $json.error?.message || \"Unknown error\" }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        5024,
+        512
+      ],
+      "id": "721bdadc-81dc-4f9d-9e3c-ad3f4b7f1c9f",
+      "name": "Send a message2",
+      "webhookId": "320fe88f-07ec-4a53-bde8-8efea21bbebc",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "c8SP0bBGyzYZF3j2",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "={{ $json.Status }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        4320,
+        -944
+      ],
+      "id": "cffa1daf-33b8-45a4-b9b9-eb760d4f3861",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "={{ $json.Status }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        4128,
+        -416
+      ],
+      "id": "9fe7e09a-af16-422c-ba83-095cd4ed03c3",
+      "name": "Aggregate1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "10918c2f-c569-4a63-9b1e-1c5c80153bcc",
+              "leftValue": "={{ $json.output.confidence_score >= 85 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1920,
+        -832
+      ],
+      "id": "cd8554fc-3da6-4c66-b5b6-23a65deab4b4",
+      "name": "If3"
+    },
+    {
+      "parameters": {
+        "sendTo": "keshavaiuser@gmail.com",
+        "subject": "⚠️ Low Confidence - Invoice Requires Manual Review",
+        "emailType": "text",
+        "message": "=Hello,\n\nThe invoice has been processed by the AI, but the confidence score is below the required threshold.\n\nStatus: Needs Manual Review\n\nInvoice Number: {{ $json.output.invoice_number || \"Not Available\" }}\nVendor Name: {{ $json.output.vendor_name || \"Not Available\" }}\nConfidence Score: {{ $json.output.confidence_score }}%\n\nReason:\nThe AI is not sufficiently confident in the extracted information. Please review the invoice manually before processing.\n\nRegards,\nAI Invoice Processing System",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2960,
+        -784
+      ],
+      "id": "ac7540bf-e709-4c70-82b4-6185e54b9944",
+      "name": "Send a message4",
+      "webhookId": "7516f6de-9197-498c-8f7d-117ba64fe873",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "c8SP0bBGyzYZF3j2",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0012a1a0-b9dd-4c3d-8965-2749c16a9843",
+              "name": "=Status",
+              "value": "=Needs Manual Review",
+              "type": "string"
+            },
+            {
+              "id": "9c2a64bb-a058-4b04-a112-bf21317a3ac7",
+              "name": "processing_timestamp",
+              "value": "={{ $now.toFormat(\"dd-MM-yyyy HH:mm:ss\") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2352,
+        -800
+      ],
+      "id": "fc3aaee6-2657-4720-bd20-0cf49f896cc1",
+      "name": "status1"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1EQ3m_ZZ5_tW6TWcm5bx1ysV9Dona-KUTOGPbZxkVb3I",
+          "mode": "list",
+          "cachedResultName": " Invoices",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1EQ3m_ZZ5_tW6TWcm5bx1ysV9Dona-KUTOGPbZxkVb3I/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Vendor": "={{ $json.output.vendor_name }}",
+            "Description": "={{ $json['output.items'].description }}",
+            "Qty": "={{ $json['output.items'].quantity }}",
+            "Unit Price": "={{ $json['output.items'].unit_price }}",
+            "Amount": "={{ $json['output.items'].amount }}",
+            "Total Amount": "={{ $json.output.total_amount }}",
+            "Tax": "={{ $json.output.tax_amount }}",
+            "Currency": "={{ $json.output.currency }}",
+            "Date": "={{ $json.output.invoice_date }}",
+            "Invoice No": "={{ $json.output.invoice_number }}",
+            "Status": "=Needs Manual Review",
+            "Confidence": "={{ $('AI Agent').item.json.output.confidence_score }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Invoice No",
+              "displayName": "Invoice No",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Vendor",
+              "displayName": "Vendor",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Currency",
+              "displayName": "Currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total Amount",
+              "displayName": "Total Amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Tax",
+              "displayName": "Tax",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Description",
+              "displayName": "Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qty",
+              "displayName": "Qty",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Unit Price",
+              "displayName": "Unit Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Amount",
+              "displayName": "Amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Confidence",
+              "displayName": "Confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "processing_timestamp",
+              "displayName": "processing_timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "useAppend": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2784,
+        -656
+      ],
+      "id": "64bd88e6-8959-4a53-a65a-5fcd65057080",
+      "name": "Append row in sheet2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F6mtjCPLgV6eF7tg",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0012a1a0-b9dd-4c3d-8965-2749c16a9843",
+              "name": "=Confidence score",
+              "value": "={{ $('AI Agent').item.json.output.confidence_score }}",
+              "type": "string"
+            },
+            {
+              "id": "9c2a64bb-a058-4b04-a112-bf21317a3ac7",
+              "name": "processing_timestamp",
+              "value": "={{ $now.toFormat(\"dd-MM-yyyy HH:mm:ss\") }}",
+              "type": "string"
+            },
+            {
+              "id": "fc81f635-d094-4f29-8384-51d546eaa52d",
+              "name": "Status",
+              "value": "Processed",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3792,
+        -800
+      ],
+      "id": "895edabf-f4bd-47f6-97a5-6ef0e4c7b6a9",
+      "name": "status2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9c2a64bb-a058-4b04-a112-bf21317a3ac7",
+              "name": "processing_timestamp",
+              "value": "={{ $now.toFormat(\"dd-MM-yyyy HH:mm:ss\") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3728,
+        -448
+      ],
+      "id": "0db750d9-d616-408f-9ba6-44cf8fcd8214",
+      "name": "status3"
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "1tMQlbAkfHwTDzIbURkBaVrJxxdEvVSI2",
+          "mode": "list",
+          "cachedResultName": "Invoice_PDF",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1tMQlbAkfHwTDzIbURkBaVrJxxdEvVSI2"
+        },
+        "event": "fileUpdated",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        144,
+        -96
+      ],
+      "id": "2ab47dfe-a4c6-4528-ba49-6d6b0eaf5b2a",
+      "name": "Google Drive Trigger",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "hTW9n1SDDbHIhXV5",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "1ThRGNfeN8GMTJD6vOY10qq_nZvDQzllk",
+          "mode": "list",
+          "cachedResultName": "dummy_invoice.pdf",
+          "cachedResultUrl": "https://drive.google.com/file/d/1ThRGNfeN8GMTJD6vOY10qq_nZvDQzllk/view?usp=drivesdk"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        448,
+        -400
+      ],
+      "id": "d33d3e9b-8ef2-4368-9557-b7ea1ee13152",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "hTW9n1SDDbHIhXV5",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "📧 Notification Status\n\n\n\nChecks whether the\nconfirmation email\nwas sent successfully.\n\nLogs failures for review."
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        4752,
+        -688
+      ],
+      "typeVersion": 1,
+      "id": "99d314aa-bff5-418f-85ad-0c32e82d3bf8",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "🚨 Error Handling\n\n\n\nPurpose:\n• Catch workflow failures\n• Validate required fields\n• Handle missing attachments\n• Log errors for debugging\n• Send failure notifications"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        4816,
+        752
+      ],
+      "typeVersion": 1,
+      "id": "650c398d-f1a5-4103-8ab5-269c2138f48e",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "🧠 AI Resources\n\n\n\nComponents:\n\n• OpenRouter Chat Model\n• Memory\n• Structured Output Parser\n\nEnsures accurate and\nconsistent invoice extraction.",
+        "height": 224,
+        "width": 246
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2640,
+        -944
+      ],
+      "typeVersion": 1,
+      "id": "12fd287a-b3e6-45cb-b5ae-2f383e9ec717",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "🛡️ AI Response Validation\n\n\n\nVerifies AI output.\n\n• Checks JSON format\n• Ensures required fields\n• Prevents invalid data\nfrom reaching Google Sheets.",
+        "height": 192,
+        "width": 272
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1440,
+        -960
+      ],
+      "typeVersion": 1,
+      "id": "d46eea71-8edf-42dc-8581-2b937cf1decf",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "☁️ Google Drive Backup\n\nPurpose:\n• Upload original invoice PDF\n• Create a secure backup\n• Preserve file before AI processing"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        192,
+        80
+      ],
+      "typeVersion": 1,
+      "id": "09cebbc7-2e6f-4253-9802-4ab2f4bb7816",
+      "name": "Sticky Note4"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "status2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "status": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message1": {
+      "main": [
+        []
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        [
+          {
+            "node": "status3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet1": {
+      "main": [
+        [
+          {
+            "node": "Aggregate1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Send a message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate1": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If3": {
+      "main": [
+        [
+          {
+            "node": "status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "status1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "status1": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet2": {
+      "main": [
+        [
+          {
+            "node": "Send a message4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "status3": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "status2": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive Trigger": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "f04aa5f3-79ef-43a5-b724-3730ceeff410",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "398bead688fc0d1e6a1affc7ada668a3ca9226f1199e862ae9ee0bb2ccaac8d1"
+  },
+  "id": "Q5g0AlfUQnfJgHwf",
+  "tags": []
+}
